@@ -435,4 +435,17 @@ class BlazeManager
         $this->foldedEvents = [];
         $this->expiredMemo = [];
     }
+
+    /**
+     * Rebuild the parser/tokenizer so it re-reads config('blaze.prefixes').
+     * Needed because $this->parser is normally built once in the constructor
+     * and captured for the lifetime of this singleton.
+     */
+    public function refreshTokenizer(): void
+    {
+        $this->parser = new \Livewire\Blaze\Parser\Parser(
+            new \Livewire\Blaze\Parser\Tokenizer($this->blade),
+            new \Livewire\Blaze\Support\AttributeParser($this->blade)
+        );
+    }
 }

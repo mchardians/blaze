@@ -9,6 +9,7 @@ class ComponentNode extends Node
 {
     /** Pre-computed by the Walker before children are compiled to TextNodes. */
     public bool $hasAwareDescendants = false;
+    protected static ?array $prefixesConfig = null;
 
     public function __construct(
         public string $name,
@@ -73,18 +74,31 @@ class ComponentNode extends Node
         return $output;
     }
 
+
+    /**
+     * Reset the cached prefix config. Call this whenever config('blaze.prefixes')
+     * may have changed at runtime (e.g. between Octane requests or tests).
+     */
+    public static function flushPrefixCache(): void
+    {
+        self::$prefixesConfig = null;
+    }
+
     /**
      * Strip the namespace prefix from a component name for tag rendering.
      */
     protected function stripNamespaceFromName(string $name, string $prefix): string
     {
-        $prefixes = [
-            'flux:' => ['namespace' => 'flux::'],
-            'x:' => ['namespace' => ''],
-            'x-' => ['namespace' => ''],
-        ];
-        if (isset($prefixes[$prefix])) {
-            $namespace = $prefixes[$prefix]['namespace'];
+        if (self::$prefixesConfig === null) {
+            self::$prefixesConfig = config('blaze.prefixes', [
+                'flux:' => ['namespace' => 'flux::'],
+                'x:' => ['namespace' => ''],
+                'x-' => ['namespace' => ''],
+            ]);
+        }
+
+        if (isset(self::$prefixesConfig[$prefix])) {
+            $namespace = self::$prefixesConfig[$prefix]['namespace'];
             if (! empty($namespace) && str_starts_with($name, $namespace)) {
                 return substr($name, strlen($namespace));
             }

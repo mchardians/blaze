@@ -36,7 +36,7 @@ class Compiler
             return $node;
         }
 
-        if ($node->name === 'flux::delegate-component') {
+        if (str_ends_with($node->name, '::delegate-component')) {
             return new TextNode($this->compileDelegateComponentTag($node));
         }
 
@@ -158,7 +158,8 @@ class Compiler
      */
     protected function compileDelegateComponentTag(ComponentNode $node): string
     {
-        $componentName = "'flux::' . " . $node->attributes['component']->value;
+        $namespace = str_replace('delegate-component', '', $node->name);
+        $componentName = "'$namespace' . " . $node->attributes['component']->value;
         $functionName = '(\'' . ($this->manager->isFolding() ? '__' : '_') . '\' . $__resolved)';
         
         $output = '<' . '?php $__resolved = $__blaze->resolve(' . $componentName . '); ?>' . "\n";

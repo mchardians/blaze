@@ -22,22 +22,14 @@ class Tokenizer
     public function __construct(
         protected BladeService $blade,
     ) {
+        $this->prefixes = config('blaze.prefixes', [
+            'flux:' => ['namespace' => 'flux::', 'slot' => 'x-slot'],
+            'x:'    => ['namespace' => '', 'slot' => 'x-slot'],
+            'x-'    => ['namespace' => '', 'slot' => 'x-slot'],
+        ]);
     }
 
-    protected array $prefixes = [
-        'flux:' => [
-            'namespace' => 'flux::',
-            'slot' => 'x-slot',
-        ],
-        'x:' => [
-            'namespace' => '',
-            'slot' => 'x-slot',
-        ],
-        'x-' => [
-            'namespace' => '',
-            'slot' => 'x-slot',
-        ],
-    ];
+    protected array $prefixes = [];
 
     protected string $content = '';
 

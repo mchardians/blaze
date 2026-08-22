@@ -28,4 +28,28 @@ return [
 
     'debug' => env('BLAZE_DEBUG', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Component Prefixes
+    |--------------------------------------------------------------------------
+    |
+    | Define the component prefixes and their associated namespaces that Blaze 
+    | should recognize during compilation.
+    |
+    */
+
+    'prefixes' => [
+        'flux:' => [
+            'namespace' => 'flux::',
+            'slot' => 'x-slot',
+        ],
+        'x:' => [
+            'namespace' => '',
+            'slot' => 'x-slot',
+        ],
+        'x-' => [
+            'namespace' => '',
+            'slot' => 'x-slot',
+        ],
+    ],
 ];

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Livewire\Blaze\Memoizer\Memo;
+use Livewire\Blaze\Parser\Nodes\ComponentNode;
 
 class BlazeServiceProvider extends ServiceProvider
 {
@@ -204,6 +205,7 @@ class BlazeServiceProvider extends ServiceProvider
 
             Unblaze::flushState();
             Memo::flushState();
+            ComponentNode::flushPrefixCache();
         });
     }
 }

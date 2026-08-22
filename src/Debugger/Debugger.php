@@ -46,15 +46,23 @@ class Debugger
     public function extractComponentName(string $path): string
     {
         $resolved = realpath($path) ?: $path;
+        
+        $resolved = str_replace('\\', '/', $resolved);
 
-        // Flux views pattern: .../resources/views/flux/<component>.blade.php
-        if (preg_match('#/resources/views/flux/(.+?)\.blade\.php$#', $resolved, $matches)) {
-            $name = str_replace('/', '.', $matches[1]);
-            $name = preg_replace('/\.index$/', '', $name);
-            return 'flux:'.$name;
+        $prefixes = config('blaze.prefixes', []);
+        
+        foreach ($prefixes as $prefix => $configData) {
+            $folderName = rtrim($prefix, ':-');
+            if (empty($folderName) || $folderName === 'x') continue;
+
+            if (preg_match('#/resources/views/' . preg_quote($folderName, '#') . '/(.+?)\.blade\.php$#', $resolved, $matches)) {
+                $name = str_replace('/', '.', $matches[1]);
+                $name = preg_replace('/\.index$/', '', $name);
+                return $prefix . $name;
+            }
         }
 
-        // Standard components/ directory
+        // Standard components/ directory bawaan
         if (preg_match('#/resources/views/components/(.+?)\.blade\.php$#', $resolved, $matches)) {
             $name = str_replace('/', '.', $matches[1]);
             $name = preg_replace('/\.index$/', '', $name);

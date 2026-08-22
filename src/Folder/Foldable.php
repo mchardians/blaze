@@ -124,12 +124,15 @@ class Foldable
         if ($looseContent && ! isset($slots['slot'])) {
             $placeholder = 'BLAZE_PLACEHOLDER_' . $this->placeholderIndex++ . '_';
 
+            $prefixes = config('blaze.prefixes', []);
+            $slotPrefix = $prefixes[$this->node->prefix]['slot'] ?? 'x-slot';
+
             $defaultSlot = new SlotNode(
                 name: 'slot',
                 attributeString: '',
                 slotStyle: 'standard',
                 children: $looseContent,
-                prefix: 'x-slot',
+                prefix: $slotPrefix,
             );
 
             $this->slotByPlaceholder[$placeholder] = $defaultSlot;
@@ -139,7 +142,7 @@ class Foldable
                 attributeString: '',
                 slotStyle: 'standard',
                 children: [new TextNode($placeholder)],
-                prefix: 'x-slot',
+                prefix: $slotPrefix,
             );
         }
 

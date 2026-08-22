@@ -19,7 +19,15 @@ expect()->extend('toEqualCollapsingWhitespace', function ($other) {
 
 function fixture_path(string $filename): string
 {
-    return __DIR__ . '/fixtures/' . $filename;
+    $viewsPath = realpath(__DIR__ . '/fixtures/views') ?: (__DIR__ . '/fixtures/views');
+
+    if (str_starts_with($filename, 'views/')) {
+        return $viewsPath . '/' . substr($filename, 6);
+    }
+
+    $fixturesPath = realpath(__DIR__ . '/fixtures') ?: (__DIR__ . '/fixtures');
+
+    return $fixturesPath . '/' . ltrim($filename, '/');
 }
 
 function compare(string $input, array $data = []): void
