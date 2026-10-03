@@ -102,15 +102,21 @@ class Foldable
 
         foreach ($this->node->children as $child) {
             if ($child instanceof SlotNode) {
-                $placeholder = 'BLAZE_PLACEHOLDER_' . $this->placeholderIndex++ . '_';
+                $children = [];
 
-                $this->slotByPlaceholder[$placeholder] = $child;
+                if ($this->hasActualContent($child->children)) {
+                    $placeholder = 'BLAZE_PLACEHOLDER_' . $this->placeholderIndex++ . '_';
+    
+                    $this->slotByPlaceholder[$placeholder] = $child;
+
+                    $children = [new TextNode($placeholder)];
+                }
 
                 $slots[$child->name] = new SlotNode(
                     name: $child->name,
                     attributeString: $child->attributeString,
                     slotStyle: $child->slotStyle,
-                    children: [new TextNode($placeholder)],
+                    children: $children,
                     prefix: $child->prefix,
                     closeHasName: $child->closeHasName,
                     attributes: $child->attributes,
@@ -121,7 +127,7 @@ class Foldable
         }
 
         // Synthesize a default slot from loose content when there's not an explicit one
-        if ($looseContent && ! isset($slots['slot'])) {
+        if ($this->hasActualContent($looseContent) && ! isset($slots['slot'])) {
             $placeholder = 'BLAZE_PLACEHOLDER_' . $this->placeholderIndex++ . '_';
 
             $prefixes = config('blaze.prefixes', []);
@@ -147,6 +153,20 @@ class Foldable
         }
 
         $this->renderable->children = $slots;
+    }
+
+    /**
+    * Determine whether a list of nodes contains anything besides whitespace-only text.
+    */
+    protected function hasActualContent(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if (! $node instanceof TextNode || trim($node->content) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
