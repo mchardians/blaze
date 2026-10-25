@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\View\Compilers\Compiler;
+use Illuminate\View\ComponentAttributeBag;
 use Livewire\Blaze\BladeService;
 use Livewire\Blaze\FrontMatter;
 use Livewire\Blaze\Support\Directives;
@@ -160,63 +161,32 @@ class BlazeRuntime
     }
 
     /**
-    * Revert escaping of data passed through attributes.
-    *
-    * @deprecated Kept for compatibility with previously compiled views. No longer used by the compiler.
-    */
-    public function unescapeAttributes($data): array
-    {
-        $result = [];
-
-        foreach ($data as $key => $value) {
-            $result[$key] = is_string($value) ? htmlspecialchars_decode($value, ENT_QUOTES) : $value;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Prepare attributes forwarded through a delegate component, like a regular component call.
+     * Merge an attribute bag passed with :attributes into the component's own attributes.
      *
-     * Bound attributes of the delegating component that are still unchanged in its attribute bag
-     * are forwarded with their original value and returned as bound, so props get the value Blade
-     * would pass and the attribute bag escapes it again. Everything else (static values, echoes
-     * escaped by the caller, attributes the component changed) is forwarded as it is in the bag.
-     * Without the delegating component's data (outside a Blaze component, or in views compiled by
-     * an older version), all values are forwarded as they are. Keys are camel cased with a map back
-     * to the original names, so kebab-case props are read from the data.
+     * A value that's not a bag stays an attribute and is escaped like any other bound value.
      *
-     * @param  array{0: array, 1: array}|null  $origin  Data and bound keys the delegating component was called with.
-     * @return array{0: array, 1: array, 2: array} Data, bound keys and original keys.
+     * @see \Illuminate\View\ComponentAttributeBag::setAttributes()
      */
-    public function delegatedAttributes(array $attributes, ?array $origin = null): array
+    public function mergeAttributes(array $attributes): array
     {
-        $data = $bound = $keys = [];
+        $parent = $attributes['attributes'] ?? null;
 
-        [$originData, $originBound] = $origin ?? [[], []];
+        if (! $parent instanceof ComponentAttributeBag) {
+            $attributes['attributes'] = BladeCompiler::sanitizeComponentAttribute($parent);
 
-        $originBound = array_flip($originBound);
-
-        foreach ($attributes as $key => $value) {
-            $name = is_string($key) ? Str::camel($key) : $key;
-
-            if ($name !== $key) {
-                if (array_key_exists($name, $attributes) || isset($keys[$name])) {
-                    $name = $key;
-                } else {
-                    $keys[$name] = $key;
-                }
-            }
-
-            if (isset($originBound[$name]) && array_key_exists($name, $originData) && BladeCompiler::sanitizeComponentAttribute($originData[$name]) === $value) {
-                $value = $originData[$name];
-                $bound[] = $name;
-            }
-
-            $data[$name] = $value;
+            return $attributes;
         }
 
-        return [$data, $bound, $keys];
+        unset($attributes['attributes']);
+
+        $parentAttributes = $parent->getAttributes();
+
+        // Merging into no attributes only changes class and style, so skip it when there are none.
+        if ($attributes === [] && ! array_key_exists('class', $parentAttributes) && ! array_key_exists('style', $parentAttributes)) {
+            return $parentAttributes;
+        }
+
+        return $parent->merge($attributes, false)->getAttributes();
     }
 
     /**

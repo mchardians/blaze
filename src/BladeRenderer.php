@@ -6,11 +6,9 @@ use Closure;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\View\ComponentSlot;
 use Livewire\Blaze\Exceptions\InvalidBlazeFoldUsageException;
-use Livewire\Blaze\Folder\DeferredTranslator;
 use Livewire\Blaze\Parser\Attribute;
 use Livewire\Blaze\Parser\Nodes\ComponentNode;
 use Livewire\Blaze\Parser\Nodes\SlotNode;
@@ -106,12 +104,6 @@ class BladeRenderer
             'folding' => true,
         ]);
 
-        // Translations depend on the request locale, so they're deferred to runtime...
-        $translator = app('translator');
-        $deferredTranslator = new DeferredTranslator($translator, $path);
-
-        Lang::swap($deferredTranslator);
-
         $obLevel = ob_get_level();
         $hash = Utils::hash($path);
         $compiled = $this->blade->getCompiledPath($path);
@@ -128,6 +120,10 @@ class BladeRenderer
                 return [$attribute->name => $attribute->getStaticValue()];
             });
 
+            $data = Arr::mapWithKeys($component->attributes, function (Attribute $attribute) {
+                return [$attribute->propName => $attribute->getStaticValue()];
+            });
+
             $attributes = Arr::mapWithKeys($component->attributes, function (Attribute $attribute) {
                 return [$attribute->name => $attribute->getStaticValue()];
             });
@@ -137,7 +133,7 @@ class BladeRenderer
             });
 
             $this->runtime->pushData($awareData);
-            $this->runtime->pushData($attributes);
+            $this->runtime->pushData($data);
             $this->runtime->pushSlots($slots);
 
             ob_start();
@@ -146,7 +142,8 @@ class BladeRenderer
 
             $fn(
                 __blaze: $this->runtime,
-                __data: $attributes,
+                __data: $data,
+                __attributes: $attributes,
                 __slots: $slots,
             );
 
@@ -163,13 +160,9 @@ class BladeRenderer
             $restoreCompiler();
             $restoreFactory();
             $restoreRuntime();
-
-            Lang::swap($translator);
         }
 
         $result = Unblaze::replaceUnblazePrecompiledDirectives($result);
-
-        $result = $deferredTranslator->restore($result);
 
         return $result;
     }

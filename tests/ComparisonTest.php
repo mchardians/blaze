@@ -105,6 +105,16 @@ test('attributes and props', fn () => compare(<<<'BLADE'
     BLADE
 ));
 
+test('merged styles are separated with a semicolon', fn () => compare(<<<'BLADE'
+    <x-merged-style style="display: none" />
+    BLADE
+));
+
+test('forwarded attributes are merged with attributes on the component', fn () => compare(<<<'BLADE'
+    <x-forwarded-attributes class="outer" style="display: none" data-foo="outer" />
+    BLADE
+));
+
 test('nested same component with different component in between', fn () => compare(<<<'BLADE'
     <x-card class="outer">
         <x-wrapper>
@@ -161,11 +171,12 @@ test('foldable aware without props', fn () => compare(<<<'BLADE'
     BLADE
 ));
 
-test('duplicate attribute', fn () => compare(<<<'BLADE'
-    <x-input type="email" type="number" />
+test('foldable kebab-case attributes as variables', fn () => compare(<<<'BLADE'
+    <x-foldable.variables foo-bar="expected" />
     BLADE
 ));
-test('foldable translations', fn () => compare(<<<'BLADE'
-    <x-foldable.translated />
+
+test('duplicate attribute', fn () => compare(<<<'BLADE'
+    <x-input type="email" type="number" />
     BLADE
 ));
