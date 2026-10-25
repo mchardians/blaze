@@ -16,7 +16,7 @@ test('compiles self-closing components', function () {
     $hash = Utils::hash($path);
 
     expect($compiled->render())->toEqualCollapsingWhitespace(join('', [
-        '<?php if (!function_exists(\'_'. $hash .'\')) { $__blaze->compile(\''. $path .'\', $__blaze->compiledPath.\'/'. $hash .'.php\'); require $__blaze->compiledPath.\'/'. $hash .'.php\'; } ?> ',
+        '<?php if (!function_exists(\'_'. $hash .'\')) { require $__blaze->compile(\''. $path .'\'); } ?> ',
         '<?php $__blaze->pushData([\'type\' => \'text\',\'disabled\' => $disabled]); ?> ',
         '<?php _'. $hash .'($__blaze, [\'type\' => \'text\',\'disabled\' => $disabled], [], [\'disabled\'], [], $__this ?? (isset($this) ? $this : null)); ?> ',
         '<?php $__blaze->popData(); ?>',
@@ -44,7 +44,7 @@ test('compiles components', function () {
     $hash = Utils::hash($path);
 
     expect($compiled->render())->toEqualCollapsingWhitespace(join('', [
-        '<?php if (!function_exists(\'_'. $hash .'\')) { $__blaze->compile(\''. $path .'\', $__blaze->compiledPath.\'/'. $hash .'.php\'); require $__blaze->compiledPath.\'/'. $hash .'.php\'; } ?> ',
+        '<?php if (!function_exists(\'_'. $hash .'\')) { require $__blaze->compile(\''. $path .'\'); } ?> ',
         '<?php if (isset($__slots'. $hash .')) { $__slotsStack'. $hash .'[] = $__slots'. $hash .'; } ?> ',
         '<?php if (isset($__attrs'. $hash .')) { $__attrsStack'. $hash .'[] = $__attrs'. $hash .'; } ?> ',
         '<?php $__attrs'. $hash .' = [\'class\' => \'mt-8\']; ?> ',
@@ -71,15 +71,18 @@ test('compiles delegate components', function () {
 
     expect($compiled->render())->toEqualCollapsingWhitespace(join('', [
         '<?php $__resolved = $__blaze->resolve(\'flux::\' . card); ?> ',
-        '<?php $__delegatedData = $__blaze->unescapeAttributes($attributes->getAttributes()); ?> ',
+        '<?php [$__delegatedData, $__delegatedBound, $__delegatedKeys] = $__blaze->delegatedAttributes($attributes->getAttributes(), $__delegateOrigin ?? null); ?> ',
         '<?php $__blaze->pushData($__delegatedData); ?> ',
         '<?php if ($__resolved !== false): ?> ',
-        '<?php (\'_\' . $__resolved)($__blaze, $__delegatedData, $__blaze->mergedComponentSlots(), [], [], $__this ?? (isset($this) ? $this : null)); ?> ',
+        '<?php (\'_\' . $__resolved)($__blaze, $__delegatedData, $__blaze->mergedComponentSlots(), $__delegatedBound, $__delegatedKeys, $__this ?? (isset($this) ? $this : null)); ?> ',
         '<?php else: ?> ',
-        '<flux:delegate-component component="card" /> ',
+        '<?php if (! Flux::componentExists((card))) throw new \Exception(\'Flux component [\' . (card) . \'] does not exist.\'); ?> ',
+        '@component(\'Illuminate\View\AnonymousComponent\', \'flux::\' . (card), [\'view\' => (app()->version() >= 12 ? hash(\'xxh128\', \'flux\') : md5(\'flux\')) . \'::\' . (card), \'data\' => array_merge($__delegatedData, $__blaze->mergedComponentSlots())]) ',
+        '<?php $component->withAttributes($attributes->getAttributes()); ?> ',
+        '@endComponentClass ',
         '<?php endif; ?> ',
         '<?php $__blaze->popData(); ?> ',
-        '<?php unset($__resolved, $__delegatedData) ?>',
+        '<?php unset($__resolved, $__delegatedData, $__delegatedBound, $__delegatedKeys) ?>',
     ]));
 });
 

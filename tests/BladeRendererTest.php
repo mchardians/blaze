@@ -6,7 +6,6 @@ use Livewire\Blaze\BladeRenderer;
 use Livewire\Blaze\BlazeManager;
 use Livewire\Blaze\Parser\Parser;
 use Livewire\Blaze\Support\AttributeParser;
-use Livewire\Blaze\Support\Utils;
 
 use function Livewire\invade;
 
@@ -18,7 +17,7 @@ test('compiles component source into the temporary cache', function () {
 
     app(BladeRenderer::class)->render($node, $path);
 
-    expect(File::exists(config('view.compiled').'/blaze/'.Utils::hash($path).'.php'))->toBeTrue();
+    expect(File::exists(config('view.compiled').'/blaze/'.basename(app(BladeCompiler::class)->getCompiledPath($path))))->toBeTrue();
 });
 
 test('makes attributes available to aware props', function () {
@@ -123,10 +122,11 @@ test('recompiles stale cache when source and compiled timestamps are equal', fun
         $blade->compile($path);
         $blaze->stopFolding();
 
+        $compiled = $blade->getCompiledPath($path);
+
         invade($blade)->cachePath = $bladeCachePath;
 
         // Now change the source and give it the same timestamp as the compiled file
-        $compiled = $renderer->getTemporaryCachePath().'/'.Utils::hash($path).'.php';
         $timestamp = now()->addSecond()->timestamp;
 
         File::put($path, '@blaze(fold: true) fresh');

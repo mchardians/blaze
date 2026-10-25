@@ -96,7 +96,7 @@ class Compiler
         $functionName = ($this->manager->isFolding() ? '__' : '_') . $hash;
         [$attributesArrayString, $boundKeysArrayString, $originalKeysArrayString] = $this->compileAttributes($node);
 
-        $output = '<' . '?php if (!function_exists(\'' . $functionName . '\')) { $__blaze->compile(\'' . $source->path . '\', $__blaze->compiledPath.\'/'. $hash . '.php\'); require $__blaze->compiledPath.\'/' . $hash . '.php\'; } ?>' . "\n";
+        $output = '<' . '?php if (!function_exists(\'' . $functionName . '\')) { require $__blaze->compile(\'' . $source->path . '\'); } ?>' . "\n";
 
         if ($node->selfClosing) {
             $output .= '<' . '?php $__blaze->pushData(' . $attributesArrayString . '); ?>' . "\n";
@@ -163,12 +163,12 @@ class Compiler
         $functionName = '(\'' . ($this->manager->isFolding() ? '__' : '_') . '\' . $__resolved)';
         
         $output = '<' . '?php $__resolved = $__blaze->resolve(' . $componentName . '); ?>' . "\n";
-        $output .= '<' . '?php $__delegatedData = $__blaze->unescapeAttributes($attributes->getAttributes()); ?>' . "\n";
+        $output .= '<' . '?php [$__delegatedData, $__delegatedBound, $__delegatedKeys] = $__blaze->delegatedAttributes($attributes->getAttributes(), $__delegateOrigin ?? null); ?>' . "\n";
         $output .= '<' . '?php $__blaze->pushData($__delegatedData); ?>' . "\n";
         $output .= '<' . '?php if ($__resolved !== false): ?>' . "\n";
 
         if ($node->selfClosing) {
-            $output .= '<' . '?php ' . $functionName . '($__blaze, $__delegatedData, $__blaze->mergedComponentSlots(), [], [], $__this ?? (isset($this) ? $this : null)); ?>' . "\n";
+            $output .= '<' . '?php ' . $functionName . '($__blaze, $__delegatedData, $__blaze->mergedComponentSlots(), $__delegatedBound, $__delegatedKeys, $__this ?? (isset($this) ? $this : null)); ?>' . "\n";
         } else {
             $hash = Utils::hash($componentName);
             $slotsVariableName = '$__slots' . $hash;
@@ -177,16 +177,44 @@ class Compiler
             $output .= '<' . '?php ' . $slotsVariableName . ' = []; ?>' . "\n";
             $output .= $this->slotCompiler->compile($slotsVariableName, $node->children);
             $output .= '<' . '?php ' . $slotsVariableName . ' = array_merge($__blaze->mergedComponentSlots(), ' . $slotsVariableName . '); ?>' . "\n";
-            $output .= '<' . '?php ' . $functionName . '($__blaze, $__delegatedData, ' . $slotsVariableName . ', [], [], $__this ?? (isset($this) ? $this : null)); ?>' . "\n";
+            $output .= '<' . '?php ' . $functionName . '($__blaze, $__delegatedData, ' . $slotsVariableName . ', $__delegatedBound, $__delegatedKeys, $__this ?? (isset($this) ? $this : null)); ?>' . "\n";
             $output .= '<' . '?php if (! empty(' . $slotsStackName . ')) { ' . $slotsVariableName . ' = array_pop(' . $slotsStackName . '); } ?>' . "\n";
         }
 
         $output .= '<' . '?php else: ?>' . "\n";
-        $output .= $node->render() . "\n";
+        $output .= $this->compileDelegateBladeFallback($node);
         $output .= '<' . '?php endif; ?>' . "\n";
 
         $output .= '<' . '?php $__blaze->popData(); ?>' . "\n";
-        $output .= '<' . '?php unset($__resolved, $__delegatedData) ?>';
+        $output .= '<' . '?php unset($__resolved, $__delegatedData, $__delegatedBound, $__delegatedKeys) ?>';
+
+        return $output;
+    }
+
+    /**
+     * Compile the Blade fallback for a delegate target that is not a Blaze component.
+     *
+     * Mirrors Flux's own delegate-component compilation, but passes the delegated data instead of
+     * the view factory's current component data, which Blaze components never set.
+     */
+    protected function compileDelegateBladeFallback(ComponentNode $node): string
+    {
+        $component = '(' . $node->attributes['component']->value . ')';
+        $view = "(app()->version() >= 12 ? hash('xxh128', 'flux') : md5('flux')) . '::' . " . $component;
+
+        $output = '<' . '?php if (! Flux::componentExists(' . $component . ')) throw new \Exception(\'Flux component [\' . ' . $component . ' . \'] does not exist.\'); ?>' . "\n";
+        $output .= "@component('Illuminate\\View\\AnonymousComponent', 'flux::' . " . $component . ", ['view' => " . $view . ", 'data' => array_merge(\$__delegatedData, \$__blaze->mergedComponentSlots())])\n";
+        $output .= '<' . '?php $component->withAttributes($attributes->getAttributes()); ?>' . "\n";
+
+        if (! $node->selfClosing) {
+            foreach ($node->children as $child) {
+                $output .= $child->render();
+            }
+
+            $output .= "\n";
+        }
+
+        $output .= '@endComponentClass' . "\n";
 
         return $output;
     }

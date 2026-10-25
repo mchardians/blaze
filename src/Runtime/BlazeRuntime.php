@@ -9,6 +9,7 @@ use Illuminate\Support\ViewErrorBag;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\View\Compilers\Compiler;
 use Livewire\Blaze\BladeService;
+use Livewire\Blaze\FrontMatter;
 use Livewire\Blaze\Support\Directives;
 use Livewire\Blaze\Support\Utils;
 use Livewire\Blaze\Debugger\Debugger;
@@ -45,13 +46,19 @@ class BlazeRuntime
     }
 
     /**
-     * Compile a component if needed.
+     * Compile a component if needed and return its compiled path.
+     *
+     * @param  string|null  $compiledPath  @deprecated Kept for compatibility with previously compiled views. No longer used.
      */
-    public function compile(string $path, string $compiledPath): void
+    public function compile(string $path, ?string $compiledPath = null): string
     {
-        if (! file_exists($compiledPath) || filemtime($path) >= filemtime($compiledPath)) {
+        $compiled = $this->compiler->getCompiledPath($path);
+
+        if (! file_exists($compiled) || filemtime($path) >= filemtime($compiled) || ! (new FrontMatter)->isCurrentVersion($compiled)) {
             $this->compiler->compile($path);
         }
+
+        return $compiled;
     }
 
     /**
@@ -71,9 +78,7 @@ class BlazeRuntime
             return;
         }
 
-        $this->compile($path, $compiledPath);
-
-        require $compiledPath;
+        require $this->compile($path);
 
         $this->required[$compiledPath] = true;
     }
@@ -98,12 +103,9 @@ class BlazeRuntime
         }
 
         $hash = Utils::hash($path);
-        $compiled = $this->getCompiledPath().'/'.$hash.'.php';
 
-        if (! function_exists(($this->folding ? '__' : '_') . basename($compiled, '.php'))) {
-            $this->compile($path, $compiled);
-
-            require $compiled;
+        if (! function_exists(($this->folding ? '__' : '_') . $hash)) {
+            require $this->compile($path);
         }
 
         return $hash;
@@ -159,6 +161,8 @@ class BlazeRuntime
 
     /**
     * Revert escaping of data passed through attributes.
+    *
+    * @deprecated Kept for compatibility with previously compiled views. No longer used by the compiler.
     */
     public function unescapeAttributes($data): array
     {
@@ -169,6 +173,50 @@ class BlazeRuntime
         }
 
         return $result;
+    }
+
+    /**
+     * Prepare attributes forwarded through a delegate component, like a regular component call.
+     *
+     * Bound attributes of the delegating component that are still unchanged in its attribute bag
+     * are forwarded with their original value and returned as bound, so props get the value Blade
+     * would pass and the attribute bag escapes it again. Everything else (static values, echoes
+     * escaped by the caller, attributes the component changed) is forwarded as it is in the bag.
+     * Without the delegating component's data (outside a Blaze component, or in views compiled by
+     * an older version), all values are forwarded as they are. Keys are camel cased with a map back
+     * to the original names, so kebab-case props are read from the data.
+     *
+     * @param  array{0: array, 1: array}|null  $origin  Data and bound keys the delegating component was called with.
+     * @return array{0: array, 1: array, 2: array} Data, bound keys and original keys.
+     */
+    public function delegatedAttributes(array $attributes, ?array $origin = null): array
+    {
+        $data = $bound = $keys = [];
+
+        [$originData, $originBound] = $origin ?? [[], []];
+
+        $originBound = array_flip($originBound);
+
+        foreach ($attributes as $key => $value) {
+            $name = is_string($key) ? Str::camel($key) : $key;
+
+            if ($name !== $key) {
+                if (array_key_exists($name, $attributes) || isset($keys[$name])) {
+                    $name = $key;
+                } else {
+                    $keys[$name] = $key;
+                }
+            }
+
+            if (isset($originBound[$name]) && array_key_exists($name, $originData) && BladeCompiler::sanitizeComponentAttribute($originData[$name]) === $value) {
+                $value = $originData[$name];
+                $bound[] = $name;
+            }
+
+            $data[$name] = $value;
+        }
+
+        return [$data, $bound, $keys];
     }
 
     /**
